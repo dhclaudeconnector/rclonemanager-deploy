@@ -461,7 +461,17 @@
       custom: true,
     }];
     const saved = (window.App.state.presets || []).filter((item) => item.provider === provider);
-    return custom.concat(saved, BUILTIN_PRESETS[provider] || []);
+    const combined = custom.concat(saved, BUILTIN_PRESETS[provider] || []);
+    return combined.filter((preset) => {
+      if (preset.custom) return true;
+      if (preset.provider === 'gd') {
+        const count = preset.builtin
+          ? (window.App.state.builtinCounts?.gd || 0)
+          : configCountForPreset(preset);
+        if (count >= 100) return false;
+      }
+      return true;
+    });
   }
 
   async function loadOAuthPresets() {
