@@ -1,3 +1,4 @@
+.antigravitycli/**
 project-api.http
 *credentials.json
 *gitignore/**

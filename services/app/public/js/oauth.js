@@ -468,6 +468,7 @@
     try {
       const data = await window.App.api.request('/api/oauth/presets');
       window.App.state.presets = data.items || [];
+      window.App.state.builtinCounts = data.builtinCounts || { gd: 0, od: 0 };
       renderPresetOptions();
       if (Object.keys(lastOauthContext).length > 0) renderOauthIdentity(lastOauthContext);
       if (!applyUrlParams()) applySelectedPreset();
@@ -506,7 +507,21 @@
     options.forEach((preset, index) => {
       const option = document.createElement('option');
       option.value = String(index);
-      option.textContent = preset.builtin ? `${preset.label} (built-in)` : preset.label;
+      
+      let labelText = preset.label;
+      if (preset.builtin) {
+        const count = window.App.state.builtinCounts?.[preset.provider] || 0;
+        const countText = `${count} config${count !== 1 ? 's' : ''}`;
+        labelText = `${preset.label} (built-in, ${countText})`;
+      } else if (preset.custom) {
+        labelText = preset.label;
+      } else {
+        const count = configCountForPreset(preset);
+        const countText = `${count} config${count !== 1 ? 's' : ''}`;
+        labelText = `${preset.label} (${countText})`;
+      }
+      option.textContent = labelText;
+      
       select.appendChild(option);
     });
     if (!reset && previous && Number(previous) < select.options.length) {
@@ -528,6 +543,21 @@
     if (preset.redirectUri) $('customRedirectUri').value = preset.redirectUri;
     if (preset.builtin && !options.preserveMode) selectMode('paste');
     updateSecretRequired();
+
+    const presetInfo = $('oauthPresetInfo');
+    if (presetInfo) {
+      if (preset.custom) {
+        presetInfo.textContent = '';
+        presetInfo.classList.add('hidden');
+      } else {
+        const count = preset.builtin
+          ? (window.App.state.builtinCounts?.[preset.provider] || 0)
+          : configCountForPreset(preset);
+        const countText = `${count} config${count !== 1 ? 's' : ''}`;
+        presetInfo.textContent = `Preset này đã được thực hiện grant cho ${countText}.`;
+        presetInfo.classList.remove('hidden');
+      }
+    }
   }
 
   function updateSecretRequired() {

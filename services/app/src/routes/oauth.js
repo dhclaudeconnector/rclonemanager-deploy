@@ -7,7 +7,7 @@ const { fetchOAuthEmailOwner, fetchOneDriveDrive } = require('../services/cloudA
 const { runRclone } = require('../services/rcloneRunner');
 const { injectOneDriveDriveId, normalizeConfigRecord } = require('../utils/configBuilder');
 const { decryptIfConfigured, encryptIfConfigured } = require('../utils/encryption');
-const { sanitizeOAuthConfig } = require('../utils/oauthClients');
+const { sanitizeOAuthConfig, isRcloneGDriveClient, isRcloneOneDriveClient } = require('../utils/oauthClients');
 const { resolveOAuthIdentity } = require('../utils/oauthIdentity');
 const { recountPresetUsageForConfigs } = require('../services/credentialUsage');
 
@@ -50,6 +50,7 @@ function publicOAuthPreset(record) {
     redirectUri: record.redirectUri || '',
     hasClientSecret: Boolean(record.clientSecret),
     storedSecret: true,
+    configCount: Number(record.configCount || 0),
   };
 }
 
@@ -342,10 +343,25 @@ router.post('/preview', async (req, res, next) => {
 
 router.get('/presets', async (_req, res, next) => {
   try {
-    const items = (await firebase.list(PRESETS_COLLECTION))
+    const presets = await firebase.list(PRESETS_COLLECTION);
+    const configs = await firebase.list(COLLECTION);
+
+    const items = presets
       .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
       .map(publicOAuthPreset);
-    res.json({ items });
+
+    const builtinCounts = {
+      gd: configs.filter(config => 
+        isRcloneGDriveClient(config) && 
+        !config.presetId && !config.credentialPresetId
+      ).length,
+      od: configs.filter(config => 
+        isRcloneOneDriveClient(config) && 
+        !config.presetId && !config.credentialPresetId
+      ).length
+    };
+
+    res.json({ items, builtinCounts });
   } catch (err) {
     next(err);
   }
